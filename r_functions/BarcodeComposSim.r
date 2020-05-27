@@ -1,8 +1,11 @@
 # shuffle barcode family labels for cells of the same organoid
-shuffle_barcodes <- function(org_lab, # organoid labels
+shuffle_barcodes <- function(org_lab = NULL, # organoid labels
                              clone_lab, # barcode family labels
                              num_shuffle = 100) # number of shuffling to generate
 {
+  if (is.null(org_lab)){
+    org_lab <- setNames(rep("organoid", length(clone_lab)), names(clone_lab))
+  }
   res <- sapply(1:num_shuffle, function(i){
     clones_org <- split(data.frame(idx = 1:length(org_lab), organoid = org_lab, GeneBarcodeMerge = clone_lab), org_lab)
     clones_shuffled <- do.call(rbind, lapply(clones_org, function(clones){
