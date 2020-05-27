@@ -161,6 +161,11 @@ colnames(metadata_visium)
 names(metadata_visium)[3] <- "spot_id"
 rownames(metadata_visium) <- metadata_visium$spot_id
 metadata_visium <- left_join(metadata_visium, v)
+#set the right section info
+names(metadata_visium)[29] <- "Section"
+metadata_visium$Section <- gsub(pattern = "6", replacement = "Section_1", x = metadata_visium$Section)
+metadata_visium$Section <- gsub(pattern = "3", replacement = "Section_2", x = metadata_visium$Section)
+metadata_visium$Section <- gsub(pattern = "-2", replacement = "Section_3", x = metadata_visium$Section)
 
 write.csv(metadata_visium, file = "~/cell_lineage/Visium/V19S23-053/metadata_visium.csv")
 ```
