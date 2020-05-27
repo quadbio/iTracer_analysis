@@ -1,0 +1,226 @@
+---
+title: "SLICE_3"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(ggplot2)
+library(cowplot)
+library(dplyr)
+library(devtools)
+```
+
+```{r}
+SLICE_3 <- Load10X_Spatial(data.dir = "/local1/DATA/sequencing/20200225_P1168_ASHLEY_10X_VISIUM_Lineage_Tracing_Visium_d15/processed/manual_alignments/SLICE_3/outs/", slice = "SLICE_3", filter.matrix = TRUE)
+```
+
+sctransfrom to normalize the data and detect high-variance features
+```{r}
+SLICE_3 <- SCTransform(SLICE_3, assay = "Spatial", verbose = FALSE)
+```
+
+write table with raw data counts
+```{r}
+write.table(SLICE_3@assays$SCT@counts, file = "~/cell_lineage/Visium/V19S23-053/SLICE_3/data_out/rawdataSLICE3_SCT.txt", quote = FALSE, sep = "\t")
+write.table(SLICE_3@assays$Spatial@counts, file = "~/cell_lineage/Visium/V19S23-053/SLICE_3/data_out/rawdataSLICE3_Spatial.txt", quote = FALSE, sep = "\t")
+
+SCT_cibsortx_input <- read.table("~/cell_lineage/Visium/V19S23-053/SLICE_3/data_out/rawdataSLICE3_SCT.txt", row.names = NULL, sep = "\t")
+head(SCT_cibsortx_input)
+names(SCT_cibsortx_input)[names(SCT_cibsortx_input) == "row.names"] <- "genes"
+head(SCT_cibsortx_input)
+write.table(SCT_cibsortx_input, file = "~/cell_lineage/Visium/V19S23-053/SLICE_3/data_out/SCT_cibsortx_input_SLICE_3.txt", quote = FALSE, sep = "\t", row.names=F)
+
+Spatial_cibsortx_input <- read.table("~/cell_lineage/Visium/V19S23-053/SLICE_3/data_out/rawdataSLICE3_Spatial.txt", row.names = NULL, sep = "\t")
+head(Spatial_cibsortx_input)
+names(Spatial_cibsortx_input)[names(Spatial_cibsortx_input) == "row.names"] <- "genes"
+head(Spatial_cibsortx_input)
+write.table(Spatial_cibsortx_input, file = "~/cell_lineage/Visium/V19S23-053/SLICE_3/data_out/Spatial_cibsortx_input_SLICE_3.txt", quote = FALSE, sep = "\t", row.names=F)
+```
+
+interactive  plot to identify spots not connected to tissue
+```{r}
+ISpatialDimPlot(SLICE_3, image = NULL, alpha = c(0.3, 1))
+```
+
+Filter out spots with less than 1000 feature and not connected to tissue
+```{r}
+# hist(SLICE_3$nFeature_Spatial)
+# low_feature_cut <- 1000
+# WhichCells(SLICE_3, expression = nFeature_Spatial < low_feature_cut)
+# SpatialDimPlot(SLICE_3, cells.highlight = WhichCells(SLICE_3, expression = nFeature_Spatial < low_feature_cut))
+# SpatialFeaturePlot(SLICE_3, features = 'nFeature_SCT')
+
+# cells_drop <- WhichCells(SLICE_3, expression = nFeature_Spatial < low_feature_cut)
+# all_cells_todrop <- rownames(SLICE_3@meta.data)[which(rownames(SLICE_3@meta.data) %in% c(cells_drop))] #all spots are touching tissue (this slice is manually tissue annotated upstream in loupe browser)
+# 
+# png("~/cell_lineage/Visium/V19S23-053/SLICE_3/plot_out/Dimplot_cellstodrop.png", width = 10, height = 10, units = "in", res = 300)
+# SpatialDimPlot(SLICE_3, cells.highlight = all_cells_todrop, pt.size.factor = 2, stroke = .5)
+# dev.off()
+# 
+# cells_to_keep <- rownames(SLICE_3@meta.data)[!rownames(SLICE_3@meta.data) %in% all_cells_todrop]
+# 
+# SLICE_3_sub <- subset(SLICE_3, cells = cells_to_keep)
+```
+
+```{r}
+SLICE_3 <- FindVariableFeatures(SLICE_3, selection.method = "vst", nfeatures = 2000)
+```
+
+Dimensionality reduction, clustering, and visualization
+```{r}
+SLICE_3 <- RunPCA(SLICE_3, assay = "SCT", features = VariableFeatures(object = SLICE_3), verbose = FALSE)
+ElbowPlot(SLICE_3)
+```
+
+Find 
+```{r}
+dims = 1:9
+SLICE_3 <- FindNeighbors(SLICE_3, reduction = "pca", dims = dims)
+```
+
+Find best resolution for clustering
+```{r}
+SLICE_3 <- FindClusters(object = SLICE_3, verbose = T, resolution = 0.1)
+SLICE_3 <- FindClusters(object = SLICE_3, verbose = T, resolution = 0.3)
+SLICE_3 <- FindClusters(object = SLICE_3, verbose = T, resolution = 0.5)
+SLICE_3 <- FindClusters(object = SLICE_3, verbose = T, resolution = 0.7)
+
+# Make plot 
+clus.tree.out <- clustree(SLICE_3) +
+    theme(legend.position = "top") + 
+    scale_color_brewer(palette = "Set1") +
+    scale_edge_color_continuous(low = "grey80", high = "red")
+# Plot 
+png("~/cell_lineage/Visium/V19S23-053/SLICE_3/plot_out/resolution_clustree.png", width = 15, height = 10, units = "in", res = 300)
+clus.tree.out
+dev.off()
+```
+
+Find clusters and run UMAP
+```{r}
+res <- 0.5
+SLICE_3 <- FindClusters(SLICE_3, verbose = FALSE, resolution = res)
+SLICE_3 <- RunUMAP(SLICE_3, reduction = "pca", dims = dims)
+```
+
+plot clusters
+```{r}
+p1 <- DimPlot(SLICE_3, reduction = "umap", label = TRUE, pt.size = 2, )
+p2 <- SpatialDimPlot(SLICE_3, label = TRUE, label.size = 3, pt.size.factor = 2.5, stroke = 0.5)
+p1_2 <- plot_grid(p1, p2)
+
+p1_2
+ggsave(p1_2, filename = "~/cell_lineage/Visium/V19S23-053/SLICE_3/plot_out/clusters.png", height = 10, width = 20, units = "in", dpi = 300)
+```
+
+plot nfeatures and ncounts
+```{r}
+plot3 <- VlnPlot(SLICE_3, features = "nCount_SCT", pt.size = 0.1) + NoLegend()
+plot4 <- SpatialFeaturePlot(SLICE_3, features = "nCount_SCT", pt.size.factor = 2.5, stroke = 0.5) + theme(legend.position = "right")
+p3_p4 <- plot_grid(plot3, plot4)
+
+
+plot5 <- VlnPlot(SLICE_3, features = "nFeature_SCT", pt.size = 0.1) + NoLegend()
+plot6 <- SpatialFeaturePlot(SLICE_3, features = "nFeature_SCT", pt.size.factor = 2.5, stroke = 0.5) + theme(legend.position = "right")
+p5_p6 <- plot_grid(plot5, plot6)
+
+p3_p4
+p5_p6
+
+ggsave(p3_p4, filename = "~/cell_lineage/Visium/V19S23-053/SLICE_3/plot_out/nCountSCT.png", height = 10, width = 20, units = "in", dpi = 300)
+
+ggsave(p5_p6, filename = "~/cell_lineage/Visium/V19S23-053/SLICE_3/plot_out/nFeatureSCT.png", height = 10, width = 20, units = "in", dpi = 300)
+```
+
+```{r}
+plot7 <- VlnPlot(SLICE_3, features = "nCount_SCT", pt.size = 0.1) + NoLegend()
+plot8 <- SpatialFeaturePlot(SLICE_3, features = "nCount_SCT", pt.size.factor = 2.5) + theme(legend.position = "right")
+p7_p8 <- plot_grid(plot7, plot8)
+
+
+plot9 <- VlnPlot(SLICE_3, features = "nFeature_Spatial", pt.size = 0.1) + NoLegend()
+plot10 <- SpatialFeaturePlot(SLICE_3, features = "nFeature_Spatial", pt.size.factor = 2.5) + theme(legend.position = "right")
+p9_p10 <- plot_grid(plot9, plot10)
+
+p7_p8
+p9_p10
+
+ggsave(p7_p8, filename = "~/cell_lineage/Visium/V19S23-053/SLICE_3/plot_out/clusters_nCountSCT.pdf", height = 7, width = 16, units = "in")
+ggsave(p9_p10, filename = "~/cell_lineage/Visium/V19S23-053/SLICE_3/plot_out/clusters_nFeaturesSCT.pdf", height = 7, width = 16, units = "in")
+```
+
+Highlight cells
+```{r}
+SpatialDimPlot(SLICE_3, cells.highlight = CellsByIdentities(object = SLICE_3, idents = c(0, 1, 2, 3, 4, 5, 6)), facet.highlight = TRUE, ncol = 3, pt.size.factor = 2.5)
+```
+
+Calculate NPC and Neuron Scores
+```{r}
+NPC_tab <- read.table(file = "~/cell_lineage/plot_out/SLICE1_plots/list.NPC_signature.txt")
+Neuron_tab <- read.table(file = "~/cell_lineage/plot_out/SLICE1_plots/list.neuron_signature.txt")
+
+NPC_sub <- as.data.frame(colSums(SLICE_3@assays$SCT@data[NPC_tab$V1, ]))
+Neuron_sub <- as.data.frame(colSums(SLICE_3@assays$SCT@data[Neuron_tab$V1, ]))
+NPC_Neuron <- cbind(NPC_sub, Neuron_sub)
+colnames(NPC_Neuron) <- c("NPC_Score", "Neuron_Score")
+
+SLICE_3@meta.data <- cbind(SLICE_3@meta.data, NPC_Neuron)
+
+png(filename = "~/cell_lineage/Visium/V19S23-053/SLICE_3/plot_out/npc_neuron_scores.png", width = 10, height = 7, units = "in", res = 300)
+SpatialFeaturePlot(SLICE_3, features = c("NPC_Score","Neuron_Score"), pt.size.factor = 3, stroke = 1)
+dev.off()
+```
+
+
+```{r}
+de_markers <- FindAllMarkers(SLICE_3)
+de_markers %>% group_by(cluster) %>% top_n(20, avg_logFC)
+write.csv(x = de_markers, file = "~/cell_lineage/Visium/V19S23-053/SLICE_3/data_out/de_markers_SLICE_3.csv")
+
+SpatialFeaturePlot(object = SLICE_3, features = rownames(de_markers)[1:3], alpha = c(0.1, 1), ncol = 3, pt.size.factor = 2.5)
+```
+
+Voxhunt
+```{r}
+theme_set(theme_bw())
+load_aba_data('/links/groups/treutlein/PUBLIC_DATA/tools/voxhunt_package/')
+head(Idents(SLICE_3), 5)
+head(SLICE_3@meta.data)
+
+regional_markers <- structure_markers('E13') %>%
+    group_by(group) %>%
+    top_n(10, auc) %>% 
+    {unique(.$gene)}
+regional_markers
+
+vox_map <- voxel_map(SLICE_3, stage = 'E13', group_name = 'seurat_clusters', genes_use = regional_markers)
+vox_map
+pdf(file= "~/cell_lineage/Visium/V19S23-053/SLICE_3/plot_out/voxhunt.pdf")
+p <- plot_map(vox_map)
+p
+dev.off()
+p
+```
+
+Feature Plots
+```{r}
+pdf(file = "~/cell_lineage/Visium/V19S23-053/SLICE_3/plot_out/featureplots.pdf", width = 16, height = 7)
+SpatialFeaturePlot(SLICE_3, features = c("Tomato","OTX2", 'PAX6'), ncol = 3, pt.size.factor = 2.5)
+SpatialFeaturePlot(SLICE_3, features = c("TBR1", "NEUROD6", "FOXG1"), ncol = 3, pt.size.factor = 2.5)
+SpatialFeaturePlot(SLICE_3, features = c("HOXB2", "HOXB8", "HOXB5"), ncol = 3, pt.size.factor = 2.5)
+SpatialFeaturePlot(SLICE_3, features = c("DCN", "TTR", "PRPH"), ncol = 3, pt.size.factor = 2.5)
+SpatialFeaturePlot(SLICE_3, features = c("NEUROD1", "SOX10", "PMEL"), ncol = 3, pt.size.factor = 2.5)
+SpatialFeaturePlot(SLICE_3, features = c("RSPO2", "RSPO3", "MEIS1"), ncol = 3, pt.size.factor = 2.5)
+dev.off()
+```
+
+```{r}
+save(SLICE_3, file = "~/cell_lineage/Visium/V19S23-053/SLICE_3/SLICE_3.RData")
+```
+
+```{r}
+SLICE_3_coords <- SLICE_3@images$SLICE_3@coordinates
+SLICE_3_anno <- cbind(SLICE_3@meta.data, SLICE_3_coords)
+write.csv(SLICE_3_anno, file = "~/cell_lineage/Visium/V19S23-053/SLICE_3/data_out/SLICE_3_anno_w_coords.csv")
+```

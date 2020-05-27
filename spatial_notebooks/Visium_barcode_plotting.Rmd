@@ -1,0 +1,170 @@
+---
+title: "Barcode Plotting"
+output: html_notebook
+---
+
+load data
+```{r}
+load(file = "~/cell_lineage/Visium/V19S23-053/SLICE_2/SLICE_2_dienmidcibx_.RData")
+load(file = "~/cell_lineage/Visium/V19S23-053/SLICE_1/SLICE_1_dienmidcibx_.RData")
+load(file = "~/cell_lineage/Visium/V19S23-053/SLICE_3/SLICE_3_dienmidcibx_.RData")
+visium_barcodes <- readRDS(file = "~/cell_lineage/Visium/V19S23-053/VISIUM_3D_meta_new.RDS")
+write.csv(visium_barcodes, "~/cell_lineage/Visium/V19S23-053/VISIUM_3D_meta_new1.csv")
+rownames(visium_barcodes) <- visium_barcodes$X
+```
+
+binarize the barcodes, find total barcodes per spot and identify all spots with a barcode
+```{r}
+visium_barcodes_bi <- as.data.frame(ifelse(test = visium_barcodes[,40:71]=="negative", yes = 0, no = 1))
+visium_barcodes_bi$barcodesum <- rowSums(visium_barcodes_bi)
+visium_barcodes_bi$hasbarcode <- visium_barcodes_bi$barcodesum
+visium_barcodes_bi$hasbarcode <- ifelse(test = visium_barcodes_bi$barcodesum > 0, yes = "yes", no = "no")
+
+rownames(visium_barcodes_bi) <- rownames(visium_barcodes)
+visium_barcodes_bi$X <- rownames(visium_barcodes_bi)
+
+table(visium_barcodes_bi$barcodesum)
+table(visium_barcodes_bi$hasbarcode) #850 cells have a barcode 
+
+visium_barcodes_bi <- left_join(x = visium_barcodes_bi, y = visium_barcodes, by = "X")
+
+#plot
+#number of barcodes by Z
+visium_barcodes_bi$Z <- factor(visium_barcodes_bi$Z, levels = c(3, 2, 1))
+pdf("~/cell_lineage/Visium/V19S23-053/spots_with_barcodes1.pdf")
+ggplot(visium_barcodes_bi, aes(x = Z, group = hasbarcode)) + geom_bar(aes(fill=hasbarcode), position = "fill")
+ggplot(visium_barcodes_bi, aes(x = Z, group = hasbarcode)) + geom_bar(aes(fill=hasbarcode)) + theme_classic()
+table(visium_barcodes_bi$hasbarcode, visium_barcodes_bi$Z)
+
+ggplot(visium_barcodes_bi, aes(x = spotassignment, group = hasbarcode)) + geom_bar(aes(fill=hasbarcode), position = "fill")
+
+visium_barcodes_bi$spotassignment <- factor(visium_barcodes_bi$spotassignment, levels = c("dien.mid","low_maxscore","hind","mesen","pns","tel", "epi","schwann"))
+ggplot(visium_barcodes_bi, aes(x = spotassignment, group = hasbarcode)) + geom_bar(aes(fill=hasbarcode))
+dev.off()
+
+table(visium_barcodes_bi$hasbarcode, visium_barcodes_bi$Z)
+table(visium_barcodes_bi$hasbarcode, visium_barcodes_bi$spotassignment)
+
+pdf("~/cell_lineage/Visium/V19S23-053/barcodes_presencevabsence3D.pdf")
+scatter3D(x = visium_barcodes_bi$row.sc, y = visium_barcodes_bi$col.sc,
+          z = as.numeric(visium_barcodes_bi$ZZ),
+          colvar = as.numeric(as.factor(visium_barcodes_bi$hasbarcode)),
+          col = c("#DADCDC", "#8B0000"),
+          main = "Barcodes", bty = "n", pch = 19, cex = 1.0, theta = 75, phi = 30, colkey = FALSE)
+dev.off()
+```
+
+Plot individual example barcodes
+```{r}
+pdf("~/cell_lineage/Visium/V19S23-053/barcodes3D.pdf")
+scatter3D(x = visium_barcodes_bi$row.sc, y = visium_barcodes_bi$col.sc,
+          z = as.numeric(visium_barcodes_bi$ZZ),
+          colvar = as.numeric(as.factor(visium_barcodes_bi$ACGCCGCGCTA.y)),
+          col = c("#0893CE", "#DADCDC"),
+          main = "ACGCCGCGCTA", bty = "n", pch = 19, cex = 1.0, theta = 75, phi = 30, colkey = FALSE)
+
+scatter3D(x = visium_barcodes_bi$row.sc, y = visium_barcodes_bi$col.sc,
+          z = as.numeric(visium_barcodes_bi$ZZ),
+          colvar = as.numeric(as.factor(visium_barcodes_bi$TGGTTGGGAGA.y)),
+          col = c("#DADCDC", "#0893CE"),
+          main = "TGGTTGGGAGA", bty = "n", pch = 19, cex = 1.0, theta = 75, phi = 30, colkey = FALSE)
+
+scatter3D(x = visium_barcodes_bi$row.sc, y = visium_barcodes_bi$col.sc,
+          z = as.numeric(visium_barcodes_bi$ZZ),
+          colvar = as.numeric(as.factor(visium_barcodes_bi$AAAGGGGAGTA.y)),
+          col = c("#0893CE", "#DADCDC"),
+          main = "AAAGGGGAGTA", bty = "n", pch = 19, cex = 1.0, theta = 75, phi = 30, colkey = FALSE)
+
+scatter3D(x = visium_barcodes_bi$row.sc, y = visium_barcodes_bi$col.sc,
+          z = as.numeric(visium_barcodes_bi$ZZ),
+          colvar = as.numeric(as.factor(visium_barcodes_bi$TCAAAGGTATA.y)),
+          col = c("#DADCDC", "#0893CE"),
+          main = "TCAAAGGTATA", bty = "n", pch = 19, cex = 1.0, theta = 75, phi = 30, colkey = FALSE)
+
+scatter3D(x = visium_barcodes_bi$row.sc, y = visium_barcodes_bi$col.sc,
+          z = as.numeric(visium_barcodes_bi$ZZ),
+          colvar = as.numeric(as.factor(visium_barcodes_bi$TTGTGTCTAGT.y)),
+          col = c("#DADCDC", "#0893CE"),
+          main = "TTGTGTCTAGT", bty = "n", pch = 19, cex = 1.0, theta = 75, phi = 30, colkey = FALSE)
+dev.off()
+```
+
+read in file where we combine barcodes for overlap (specific barcodes are detailed below, you can combine any barcodes you like we choose 4 barcodes) (manualy created from visium_barcode_bi file)
+```{r}
+Visum.meta.all.barcodes1 <- read.csv("~/cell_lineage/Visium/V19S23-053/visum_metaallbarcodes1.csv") #after combining example barcodes 
+```
+
+```{r}
+levels(as.factor(Visum.meta.all.barcodes1$example_barcodes3))
+#F7F747 -yellow - AAAGGGGAGTA #1
+#0893CE - blue - ACGCCGCGCTA # 2
+#DADCDC - grey - negative #4
+#D50606 - red - TCAAAGGTATA #5
+#E48F21 - orange - TCAAAGGTATA/AAAGGGGAGTA #6
+#13A226 - green -ACGCCGCGCTA/AAAGGGGAGTA #3
+#902ABC - purple- TTTGTGAGGAA
+
+pdf("~/cell_lineage/Visium/V19S23-053/barcodes_combo4bars.pdf")
+scatter3D(x = Visum.meta.all.barcodes1$row.sc, y = Visum.meta.all.barcodes1$col.sc,
+          z = as.numeric(Visum.meta.all.barcodes1$ZZ),
+          colvar = as.numeric(as.factor(Visum.meta.all.barcodes1$example_barcodes3)),
+          col = c("#F7F747", "#0893CE", "#13A226", "#DADCDC", "#D50606", "#E48F21", "#902ABC"),
+          bty = "n", pch = 19, cex = 1.0, theta = 75, phi = 30, colkey = FALSE)
+dev.off()
+``` 
+
+Plot Total Barcodes per Spot (3D)
+```{r}
+pdf("~/cell_lineage/Visium/V19S23-053/barcodes_total.pdf")
+scatter3D(x = visium_barcodes_bi$row.sc, y = visium_barcodes_bi$col.sc,
+          z = as.numeric(visium_barcodes_bi$ZZ),
+          colvar = as.numeric(as.factor(visium_barcodes_bi$barcodesum)),
+          col = ramp.col(c("white", "red")),
+          bty = "n", pch = 19, cex = 1.0, theta = 75, phi = 30, colkey = TRUE)
+dev.off()
+
+table(visium_barcodes_bi$barcodesum)
+```
+
+```{r}
+write.csv(visium_barcodes_bi, file = "~/cell_lineage/Visium/V19S23-053/visium_barcodesbi.csv")
+```
+
+find % mito per spot
+```{r}
+SLICE_1_sub
+SLICE_2_sub
+SLICE_3
+x <- PercentageFeatureSet(SLICE_1_sub, pattern = "^MT-")
+y <- PercentageFeatureSet(SLICE_2_sub, pattern = "^MT-")
+z <- PercentageFeatureSet(SLICE_3, pattern = "^MT-")
+rownames(x) <- gsub(pattern = "-1", replacement = "_S1", x = rownames(x))
+rownames(y) <- gsub(pattern = "-1", replacement = "_S2", x = rownames(y))
+rownames(z) <- gsub(pattern = "-1", replacement = "_S3", x = rownames(z))
+w <- rbind(x, y)
+v <- rbind (w, z)
+mean(v$nCount_SCT)
+v$spot_id <- rownames(v)
+colnames(v) <- c("percent.mito", "spot_id")
+```
+
+construct final metadata
+```{r}
+colnames(visium_barcodes_bi)
+colnames(visium_barcodes)
+colnames(Visum.meta.all.barcodes1)
+
+metadata_visium <- visium_barcodes_bi[,c(33:35, 37:40, 48:59, 62, 64:72)]
+metadata_visium <- left_join(metadata_visium, visium_barcodes[, c(1, 40:71)])
+metadata_visium <- left_join(metadata_visium, Visum.meta.all.barcodes1[,c(1,36)])
+colnames(metadata_visium)
+names(metadata_visium)[3] <- "spot_id"
+rownames(metadata_visium) <- metadata_visium$spot_id
+metadata_visium <- left_join(metadata_visium, v)
+
+write.csv(metadata_visium, file = "~/cell_lineage/Visium/V19S23-053/metadata_visium.csv")
+```
+
+
+
+

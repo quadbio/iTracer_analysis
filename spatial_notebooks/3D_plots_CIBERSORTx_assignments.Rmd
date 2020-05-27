@@ -1,0 +1,87 @@
+---
+title: "3D plot spotassignment"
+output: html_notebook
+---
+
+```{r}
+library(plot3D)
+library(tidyverse)
+library(Seurat)
+```
+
+load files
+```{r}
+load(file = "~/cell_lineage/Visium/V19S23-053/SLICE_2/SLICE_2_dienmidcibx_.RData")
+load(file = "~/cell_lineage/Visium/V19S23-053/SLICE_1/SLICE_1_dienmidcibx_.RData")
+load(file = "~/cell_lineage/Visium/V19S23-053/SLICE_3/SLICE_3_dienmidcibx_.RData")
+```
+
+set up x and y coords for visium spots
+```{r}
+Visum.meta.1 <- SLICE_1_sub@meta.data
+Visum.coords.1 <- SLICE_1_sub@images$SLICE_1@coordinates 
+Visum.meta.1 <- cbind(Visum.meta.1, Visum.coords.1)
+Visum.meta.1$Spot <- rownames(Visum.meta.1)
+rownames(Visum.meta.1) <- gsub("-1","_S1", rownames(Visum.meta.1))
+Visum.meta.1$Z = 3
+Visum.meta.1$col.sc = scale(Visum.meta.1$col)
+Visum.meta.1$row.sc = scale(Visum.meta.1$row)
+
+Visum.meta.2 <- SLICE_2_sub@meta.data
+Visum.coords.2 <- SLICE_2_sub@images$SLICE_2@coordinates 
+Visum.meta.2 <- cbind(Visum.meta.2, Visum.coords.2)
+Visum.meta.2$Spot <- rownames(Visum.meta.2)
+rownames(Visum.meta.2) <- gsub("-1","_S2", rownames(Visum.meta.2))
+Visum.meta.2$Z = 2
+Visum.meta.2$col.sc = scale(Visum.meta.2$col)
+Visum.meta.2$row.sc = scale(Visum.meta.2$row)
+
+Visum.meta.3 <- SLICE_3@meta.data
+Visum.coords.3 <- SLICE_3@images$SLICE_3@coordinates 
+Visum.meta.3 <- cbind(Visum.meta.3, Visum.coords.3)
+Visum.meta.3$Spot <- rownames(Visum.meta.3)
+rownames(Visum.meta.3) <- gsub("-1","_S3", rownames(Visum.meta.3))
+Visum.meta.3$Z = 1
+Visum.meta.3$col.sc = scale(Visum.meta.3$col)
+Visum.meta.3$row.sc = scale(Visum.meta.3$row)
+
+Visum.meta.all = rbind(Visum.meta.1, Visum.meta.2, Visum.meta.3, stringsAsFactors=F)
+```
+
+set z for plotting
+```{r}
+Visum.meta.all$ZZ <- Visum.meta.all$Z
+Visum.meta.all$ZZ <- gsub(pattern = 3, replacement = 6, x = Visum.meta.all$ZZ) #section 1
+Visum.meta.all$ZZ <- gsub(pattern = 2, replacement = 3, x = Visum.meta.all$ZZ) #section 2
+Visum.meta.all$ZZ <- gsub(pattern = 1, replacement = -2, x = Visum.meta.all$ZZ) #section 3
+table(Visum.meta.all$ZZ)
+```
+
+plot
+```{r}
+cols <- c("#966CA7", "#212F3C", "#148F77", "#FFFFFF", "#CFCFCF", "#D4AC0D", "#F7DC6F", "#922B21")
+levels(as.factor(Visum.meta.all.barcodes$spotassignment)) #dien.mid epi hind low_maxscore mesen pns schwann tel
+
+pdf("~/cell_lineage/Visium/V19S23-053/spotassignment3_whitunassigned.pdf")
+scatter3D(x = Visum.meta.all$row.sc, y = Visum.meta.all$col.sc, 
+          z = as.numeric(Visum.meta.all$ZZ),  
+          colvar = as.numeric(as.factor(Visum.meta.all$spotassignment)),
+          col = c("#966CA7", "#212F3C", "#148F77", "#FFFFFF", "#CFCFCF", "#D4AC0D", "#F7DC6F", "#922B21"),
+          bty = "n", pch = 19, cex = 1.0, theta = 75, phi = 30, colkey = FALSE)
+dev.off()
+```
+
+plot number of spots per spot annotation
+```{r}
+Visum.meta.all$spotassignment <- factor(Visum.meta.all$spotassignment, levels = c("dien.mid","low_maxscore","hind","mesen","pns","tel", "epi","schwann"))
+pdf("~/cell_lineage/Visium/V19S23-053/barplot_cibx_spotassignment.pdf")
+ggplot(Visum.meta.all, aes(x = spotassignment)) + geom_bar() + theme_classic()
+dev.off()
+table(Visum.meta.all$spotassignment)
+```
+
+```{r}
+write.csv(x = Visum.meta.all, file = "~/cell_lineage/Visium/V19S23-053/Visum_meta_all.csv")
+```
+
+

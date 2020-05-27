@@ -1,0 +1,86 @@
+---
+title: "SLICE 1 deconvolution with dienmid ref"
+output: html_notebook
+---
+
+```{r}
+load("~/cell_lineage/Visium/V19S23-053/SLICE_1/SLICE_1_sub.RData")
+```
+
+*CIBERSORTX*
+load cibersortx data
+
+```{r}
+SLICE_dienmid_CIBX1 <- read.csv("~/cell_lineage/Visium/V19S23-053/SLICE_1/archived_SLICE1_cibersort_outputs/CIBERSORTx_Job12_SCT_SLICE1_dienmid_Results.csv", row.names = 1, header = TRUE)
+
+y1 <- SLICE_dienmid_CIBX1[ ,1:9] #subset to only fraction columns
+```
+
+subset to only cells used in SLICE_1_dienmid
+```{r}
+head(y1)
+rownames(y1) <- gsub(pattern = ".1", replacement = "-1", x = rownames(y1)) #replace .1 with -1 to match
+y1 <- y1[rownames(y1) %in% rownames(SLICE_1_sub@meta.data), ]
+```
+
+show distribution of max fraction score for each spot
+```{r}
+hist(apply(y1, 1, max))
+```
+
+plot score distribution for each lineage
+```{r}
+ggplot(gather(y1), aes(value)) + 
+    geom_histogram(bins = 15) + 
+    facet_wrap(~key, scales = 'free', nrow = 2, ncol = 5)
+```
+
+Find and add max lineage to metadata
+```{r}
+#add the cell type fractions to the metadata
+SLICE_1_sub@meta.data <- cbind (SLICE_1_sub@meta.data, y1)
+
+#assign maxlineage based on y1
+maxlineage <- colnames(y1)[apply(y1,1,which.max)]
+SLICE_1_sub$maxlineage <- maxlineage
+```
+
+Find and add max, second max, and differences of two max values to metadata
+```{r}
+y2 <- apply(y1, 1, max)
+y4 <- as.data.frame(y2)
+colnames(y4) <- "max_score"
+# find quartile for thresholding
+y4$quantile <- quantcut(y4$max_score)
+unique(y4$quantile) #.405 cutoff (below 2nd quart)
+#add maxscore information to metadata
+SLICE_1_sub@meta.data <- cbind(SLICE_1_sub@meta.data, y4[,c("max_score", "quantile")])
+#find and add second max value to metadata
+second_max <- as.data.frame(apply(y1, 1, function(i) sort(i)[ dim(y1)[2]-1]))
+SLICE_1_sub@meta.data <- cbind(SLICE_1_sub@meta.data, second_max)
+colnames(SLICE_1_sub@meta.data)[25] <- "second_max" 
+SLICE_1_sub@meta.data$diff_maxes <- SLICE_1_sub$max_score - SLICE_1_sub$second_max
+```
+
+Plot
+```{r}
+#create spot assingment with thresholds for "low_maxscore" cells
+SLICE_1_sub@meta.data$spotassignment <- SLICE_1_sub@meta.data$maxlineage
+SLICE_1_sub@meta.data$spotassignment <- ifelse(SLICE_1_sub@meta.data$max_score < 0.405, yes = "low_maxscore", no = SLICE_1_sub@meta.data$maxlineage)
+
+cols = setNames(c("#D4AC0D", "#999999", "#922B21", "#148F77", "#966CA7", "#212F3C", "#CFCFCF", "#F1C40F"), c("pns", "low_maxscore", "tel", "hind", "dien.mid", "epi", "mesen", "retina"))
+
+pdf("~/cell_lineage/Visium/V19S23-053/SLICE_1/SLICE_1_cibxsort_dienmid_plots.pdf")
+SpatialDimPlot(SLICE_1_sub, group.by = "quantile", pt.size.factor = 3.0, stroke = 0.5) + scale_fill_brewer(palette="Reds")
+SpatialFeaturePlot(SLICE_1_sub, features = colnames(y1), pt.size.factor = 3.0, stroke = 0.5, ncol = 5)
+ggplot(SLICE_1_sub@meta.data, aes(x = max_score)) + geom_histogram(bins = 20) + ggtitle("Histogram of Max Scores")
+ggplot(SLICE_1_sub@meta.data, aes(x = diff_maxes)) + geom_histogram(bins = 20) + ggtitle("Histogram of Difference between Max Score and Second Max Score")
+SpatialDimPlot(object = SLICE_1_sub, group.by = "spotassignment", pt.size.factor = 3, stroke = 1) + scale_fill_manual(values = cols)
+dev.off()
+```
+
+Save Slice 1 with CIBX data
+```{r}
+save(SLICE_1_sub, file = "~/cell_lineage/Visium/V19S23-053/SLICE_1/SLICE_1_dienmidcibx_.RData")
+```
+
