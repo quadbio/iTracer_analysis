@@ -1,17 +1,37 @@
 library(stringdist)
 library(igraph)
+library(reshape2)
+library(mixtools)
 
 # filter barcode
-do_filter_barcodes <- function(df_barcode) # table output by ExtractRFPbarcodesFromBam.pl
+do_filter_barcodes <- function(df_barcode, coverage_cutoff_mode = c("linear","log_gmm","log_turn"), cutoff_prob = 1 - 1E-10, num_log_breaks = 20) # table output by ExtractRFPbarcodesFromBam.pl
 {
+  coverage_cutoff_mode <- match.arg(coverage_cutoff_mode)
+  
   # filter 1: read coverage
-  count <- melt(table(df_barcode$Reads))
-  count <- merge(data.frame(count=3:max(count$Var1)),count, by.y = "Var1",by.x = "count",all = TRUE)
-  count[is.na(count)] <- 0
-  count$fit <- predict(loess(value~log(count), count, span = 0.1), count)
-  count$fit[count$fit<1] <- 1
-  turn <- count$count[min(which(count$fit[-1] - count$fit[-length(count$fit)]>0))]
-  idx_high_coverage <- which(df_barcode$Reads >= turn)
+  if (coverage_cutoff_mode == "linear"){
+    count <- melt(table(df_barcode$Reads))
+    count <- merge(data.frame(count=3:max(count$Var1)),count, by.y = "Var1",by.x = "count",all = TRUE)
+    count[is.na(count)] <- 0
+    count$fit <- predict(loess(value~log(count), count, span = 0.1), count)
+    count$fit[count$fit<1] <- 1
+    turn <- count$count[min(which(count$fit[-1] - count$fit[-length(count$fit)]>0))]
+    idx_high_coverage <- which(df_barcode$Reads >= turn)
+  } else if (coverage_cutoff_mode == "log_gmm"){
+    logReads <- log(df_barcode$Reads)
+    model <- normalmixEM(logReads, lambda = c(0.5,0.5), mu = c(min(logReads), max(logReads)))
+    idx_high_coverage <- which(model$posterior[,which.max(model$mu)] >= cutoff_prob)
+  } else{
+    logReads <- log(df_barcode$Reads)
+    breaks <- as.numeric(cut(logReads, breaks = num_log_breaks, right = F, include.lowest = T))
+    count <- melt(table(breaks))
+    count <- merge(data.frame(count=1:max(count$breaks)),count, by.y = "breaks",by.x = "count",all = TRUE)
+    count[is.na(count)] <- 0
+    count$fit <- predict(loess(value~count, count, span = 1), count)
+    count$fit[count$fit<1] <- 1
+    turn <- count$count[min(which(count$fit[-1] - count$fit[-length(count$fit)]>0))]
+    idx_high_coverage <- which(breaks >= turn)
+  }
   df_barcode <- df_barcode[idx_high_coverage,]
   
   # filter 2: start and end with either A or T
@@ -55,16 +75,36 @@ do_filter_barcodes <- function(df_barcode) # table output by ExtractRFPbarcodesF
 }
 
 # filter scars
-do_filter_scars <- function(df_scar) # table output by ExtractScarsFromBam.pl
+do_filter_scars <- function(df_scar, coverage_cutoff_mode = c("linear","log_gmm","log_turn"), cutoff_prob = 1 - 1E-10, num_log_breaks = 20) # table output by ExtractScarsFromBam.pl
 {
+  coverage_cutoff_mode <- match.arg(coverage_cutoff_mode)
+  
   # filter 1: read coverage
-  count <- melt(table(df_scar$Reads))
-  count <- merge(data.frame(count=3:max(count$Var1)),count, by.y = "Var1",by.x = "count",all = TRUE)
-  count[is.na(count)] <- 0
-  count$fit <- predict(loess(value~log(count), count, span = 0.1), count)
-  count$fit[count$fit<1] <- 1
-  turn <- count$count[min(which(count$fit[-1] - count$fit[-length(count$fit)]>0))]
-  idx_high_coverage <- which(df_scar$Reads >= turn)
+  if (max(df_scar$Reads) <= 5){
+    idx_high_coverage <- 1:nrow(df_scar)
+  } else if (coverage_cutoff_mode == "linear"){
+    count <- melt(table(df_scar$Reads))
+    count <- merge(data.frame(count=3:max(count$Var1)),count, by.y = "Var1",by.x = "count",all = TRUE)
+    count[is.na(count)] <- 0
+    count$fit <- predict(loess(value~log(count), count, span = 0.1), count)
+    count$fit[count$fit<1] <- 1
+    turn <- count$count[min(which(count$fit[-1] - count$fit[-length(count$fit)]>0))]
+    idx_high_coverage <- which(df_scar$Reads >= turn)
+  } else if (coverage_cutoff_mode == "log_gmm"){
+    logReads <- log(df_scar$Reads)
+    model <- normalmixEM(logReads, lambda = c(0.5,0.5), mu = c(min(logReads), max(logReads)))
+    idx_high_coverage <- which(model$posterior[,which.max(model$mu)] >= cutoff_prob)
+  } else{
+    logReads <- log(df_scar$Reads)
+    breaks <- as.numeric(cut(logReads, breaks = num_log_breaks, right = F, include.lowest = T))
+    count <- melt(table(breaks))
+    count <- merge(data.frame(count=1:max(count$breaks)),count, by.y = "breaks",by.x = "count",all = TRUE)
+    count[is.na(count)] <- 0
+    count$fit <- predict(loess(value~count, count, span = 1), count)
+    count$fit[count$fit<1] <- 1
+    turn <- count$count[min(which(count$fit[-1] - count$fit[-length(count$fit)]>0))]
+    idx_high_coverage <- which(breaks >= turn)
+  }
   df_scar <- df_scar[idx_high_coverage,]
   
   # filter 2: if there are molecules where the same UMI for different scars is detected in a cell, only remain the one with higher coverage

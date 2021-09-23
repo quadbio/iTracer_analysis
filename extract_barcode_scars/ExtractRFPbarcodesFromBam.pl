@@ -54,7 +54,10 @@ foreach (@ARGV) {
 			$RFPcode_pSBbi = $2;
 #			print $2;
 		
-		}
+		} elsif ($bamline[9] =~ /(AGCTGATCC)([A-Z]{8,})(CCAAGC)/ ) {
+			$RFPcode_pSBbi = $2;
+#			print $2;
+                }
 		if ($RFPcode_pSBbi) {
 			my $cell_UMI_barcode = "$barcode\_$UMI\_$RFPcode_pSBbi\n";
 			$Reads_pSBbi{$cell_UMI_barcode}++;
@@ -116,6 +119,9 @@ foreach (@ARGV) {
 		my $RFPcode_pSBbi;
 		my $GFPcode_pSMAL;
 		if ($bamline[9] =~ /(AGTGATCC)([A-Z]{8,})(CCAACC)/) {
+			$RFPcode_pSBbi = $2;
+			$cell_UMI_barcode = "$barcode\_$UMI\_$RFPcode_pSBbi\n";
+		} elsif ($bamline[9] =~ /(AGCTGATCC)([A-Z]{8,})(CCAAGC)/) {
 			$RFPcode_pSBbi = $2;
 			$cell_UMI_barcode = "$barcode\_$UMI\_$RFPcode_pSBbi\n";
 		} elsif ($bamline[9] =~ /(AAACCGGT)([A-Z]{6,})(GAATTCGA)/) {

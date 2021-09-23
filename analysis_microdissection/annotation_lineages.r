@@ -1,5 +1,7 @@
 library(Seurat)
 library(Matrix)
+library(data.tree)
+library(networkD3)
 
 # read data and create seurat object
 counts <- readMM("data/microdissected/counts.mtx.gz")
