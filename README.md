@@ -1,7 +1,7 @@
 # Script archive: Lineage recording in human cerebral organoids
 This repository includes scripts to preprocess the iTracer data, as well as scripts to reproduce analysis done on the paper "Lineage recording in human cerebral organoids". In the paper, we describe iTracer, a lineage recorder that combines reporter barcodes with inducible CRISPR/Cas9 scarring, and is compatible with single-cell and spatial transcriptomics. In the paper we also describe how we used the tool to investigate cell lineages in cerebral organoid development.
 
-The paper is published in Nature Methods. Its earlier version is also available in bioRxiv: [Lineage recording reveals dynamics of cerebral organoid regionalization](https://www.biorxiv.org/content/10.1101/2020.06.19.162032v3).
+The paper has been accepted and will be available soon. Its earlier version is available in bioRxiv: [Lineage recording reveals dynamics of cerebral organoid regionalization](https://www.biorxiv.org/content/10.1101/2020.06.19.162032v3).
 
 ## Folder description
 Folder | Description | Related figures
